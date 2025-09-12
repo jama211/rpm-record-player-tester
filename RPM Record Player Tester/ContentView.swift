@@ -24,8 +24,7 @@ struct InstructionView: View {
     @Binding var showingMeasurement: Bool
     
     var body: some View {
-        VStack(spacing: 30) {
-            Spacer()
+        VStack(spacing: 20) {
             
             // App Title
             VStack(spacing: 10) {
@@ -33,16 +32,16 @@ struct InstructionView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.primary)
                 
-                Text("RPM Detector")
+                Text("RPM Record Player Tester")
                     .font(.largeTitle)
                     .fontWeight(.bold)
             }
-            
-            Spacer()
+            .padding(.top, 80)
+            .padding(.bottom, 50)
             
             // Instructions
             VStack(spacing: 20) {
-                VStack(spacing: 15) {
+                VStack(spacing: 20) {
                     Text("Place your phone on the center of the turntable.")
                         .multilineTextAlignment(.center)
                     
@@ -57,7 +56,7 @@ struct InstructionView: View {
                 }
                 .font(.body)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 30)
             
             Spacer()
             

@@ -135,45 +135,70 @@ struct RPMMeasurementView: View {
             let percentageDiff = abs(absRpm - closestTargetSpeed) / closestTargetSpeed * 100
             
             if percentageDiff <= RPMTesterConfig.perfectAccuracyPercentage {
-                // Maximum green when within perfect accuracy percentage
-                return RPMTesterConfig.maxGreenColor
-            } else if percentageDiff < RPMTesterConfig.goodAccuracyPercentage {
-                // Green gets stronger from nothing to strong as you approach perfect accuracy
-                let fadeRange = RPMTesterConfig.goodAccuracyPercentage - RPMTesterConfig.perfectAccuracyPercentage
-                let fadePosition = (RPMTesterConfig.goodAccuracyPercentage - percentageDiff) / fadeRange // 1.0 at perfect, 0.0 at good boundary
-                return Color.green.opacity(RPMTesterConfig.maxGreenOpacity * fadePosition)
-            } else {
-                // Red fades based on distance to worst possible speed (midpoints between targets)
-                let worstSpeeds = [0.0, 39.165, 61.5, 99.99] // 0, (33.33+45)/2, (45+78)/2, upper limit
-                
-                // Find distance to closest worst speed
-                var closestWorstDistance = Double.infinity
-                for worstSpeed in worstSpeeds {
-                    let distance = abs(absRpm - worstSpeed)
-                    if distance < closestWorstDistance {
-                        closestWorstDistance = distance
-                    }
-                }
-                
-                // Calculate how far we are from the green-red transition boundary
-                let greenRedBoundaryDistance = closestTargetSpeed * (RPMTesterConfig.goodAccuracyPercentage / 100.0)
-                let distanceBeyondGreenZone = max(0, closestDistance - greenRedBoundaryDistance)
-                
-                // Calculate distance to worst speed
-                let distanceToWorst = closestWorstDistance
-                let maxPossibleDistance = distanceToWorst + greenRedBoundaryDistance
-                
-                if maxPossibleDistance > 0 {
-                    // Red intensity: 0.0 at green-red boundary, 1.0 at worst speed
-                    let redIntensity = distanceBeyondGreenZone / (distanceToWorst - greenRedBoundaryDistance + distanceBeyondGreenZone)
-                    return Color.red.opacity(RPMTesterConfig.maxRedOpacity * min(1.0, redIntensity))
+                // Check if all values in buffer are within perfect accuracy (stabilized)
+                if isStabilizedAtTarget(rpm: absRpm, targetSpeed: closestTargetSpeed) {
+                    // Stabilized green - brightest possible
+                    return Color(
+                        red: 0.0,
+                        green: 1.0,
+                        blue: 0.0,
+                        opacity: RPMTesterConfig.stabilizedBackgroundOpacity
+                    )
                 } else {
-                    return RPMTesterConfig.maxRedColor
+                    // Max green - standard brightness
+                    return Color(
+                        red: 0.0,
+                        green: 1.0,
+                        blue: 0.0,
+                        opacity: RPMTesterConfig.backgroundOpacity
+                    )
                 }
+            } else if percentageDiff < RPMTesterConfig.maxPercentageDifference {
+                // Smooth blend from green (at 1%) to red (at 10%) - no 5% boundary
+                let blendRange = RPMTesterConfig.maxPercentageDifference - RPMTesterConfig.perfectAccuracyPercentage // 9% range (1% to 10%)
+                let blendPosition = (percentageDiff - RPMTesterConfig.perfectAccuracyPercentage) / blendRange // 0.0 at 1%, 1.0 at 10%
+                
+                // Direct blend: green fades out as red fades in
+                let greenRatio = (1.0 - blendPosition) // 1.0 at 1%, 0.0 at 10%
+                let redRatio = blendPosition // 0.0 at 1%, 1.0 at 10%
+                
+                
+                // Create blended color with consistent opacity
+                return Color(
+                    red: redRatio,
+                    green: greenRatio,
+                    blue: 0.0,
+                    opacity: RPMTesterConfig.backgroundOpacity
+                )
+            } else {
+                // Maximum red when outside 10%
+                return Color(
+                    red: 1.0,
+                    green: 0.0,
+                    blue: 0.0,
+                    opacity: RPMTesterConfig.backgroundOpacity
+                )
             }
         }
         
         return Color.clear
+    }
+    
+    // Check if all values in the smoothing buffer are within perfect accuracy range
+    private func isStabilizedAtTarget(rpm: Double, targetSpeed: Double) -> Bool {
+        // Need full buffer for stabilization check
+        guard motionManager.rotationHistory.count >= RPMTesterConfig.rpmSmoothingHistorySize else {
+            return false
+        }
+        
+        // Check if all values in buffer are within 1% of the target
+        let perfectThreshold = targetSpeed * (RPMTesterConfig.perfectAccuracyPercentage / 100.0)
+        let allInRange = motionManager.rotationHistory.allSatisfy { value in
+            abs(value - targetSpeed) <= perfectThreshold
+        }
+        
+        
+        return allInRange
     }
 }
 
@@ -181,10 +206,16 @@ class MotionManager: ObservableObject {
     private let motionManager = CMMotionManager()
     private var timer: Timer?
     private var lastUpdateTime: TimeInterval = 0
-    private var rotationHistory: [Double] = []
+    private var _rotationHistory: [Double] = []
     
     @Published var rpm: Double = 0.0
     @Published var totalRotation: Double = 0.0
+    
+    // Provide read-only access to rotation history for stabilization check
+    var rotationHistory: [Double] {
+        return self._rotationHistory
+    }
+    
     
     func startUpdates() {
         guard motionManager.isDeviceMotionAvailable else {
@@ -210,19 +241,18 @@ class MotionManager: ObservableObject {
                 let currentRPM = abs(rotationRate) * 60.0 / (2.0 * Double.pi)
                 
                 // Add to history for smoothing
-                self.rotationHistory.append(currentRPM)
-                if self.rotationHistory.count > RPMTesterConfig.rpmSmoothingHistorySize {
-                    self.rotationHistory.removeFirst()
+                self._rotationHistory.append(currentRPM)
+                if self._rotationHistory.count > RPMTesterConfig.rpmSmoothingHistorySize {
+                    self._rotationHistory.removeFirst()
                 }
                 
-                // Calculate smoothed RPM with outlier rejection
-                let smoothedRPM = self.calculateRobustAverage(from: self.rotationHistory)
+                // Calculate smoothed RPM
+                let smoothedRPM = self._rotationHistory.reduce(0.0, +) / Double(self._rotationHistory.count)
                 
                 // Apply minimum detectable threshold - below this is sensor noise
                 let finalRPM = smoothedRPM < RPMTesterConfig.minimumDetectableRPM ? 0.0 : smoothedRPM
                 
-                // Testing mode override
-                self.rpm = RPMTesterConfig.testingMode ? RPMTesterConfig.testingModeRPM : finalRPM
+                self.rpm = finalRPM
                 
                 // Use rotation rate integration for counter-rotation (more stable under fast movement)
                 // Integrate the Z-axis rotation rate over time
@@ -238,32 +268,9 @@ class MotionManager: ObservableObject {
         motionManager.stopDeviceMotionUpdates()
         timer?.invalidate()
         timer = nil
-        rotationHistory.removeAll()
+        _rotationHistory.removeAll()
         rpm = 0.0
         totalRotation = 0.0
-    }
-    
-    // Calculate average while rejecting outliers to prevent spikes during acceleration
-    private func calculateRobustAverage(from values: [Double]) -> Double {
-        guard values.count >= 3 else {
-            // Not enough data for outlier detection, use simple average
-            return values.reduce(0.0, +) / Double(values.count)
-        }
-        
-        // Sort values to find median and detect outliers
-        let sortedValues = values.sorted()
-        let median = sortedValues[sortedValues.count / 2]
-        
-        // Calculate median absolute deviation (MAD) for outlier detection
-        let deviations = sortedValues.map { abs($0 - median) }
-        let mad = deviations.sorted()[deviations.count / 2]
-        
-        // Filter out outliers (values more than 2 MADs from median)
-        let threshold = max(mad * 2.0, 0.5) // Minimum threshold of 0.5 RPM
-        let filteredValues = sortedValues.filter { abs($0 - median) <= threshold }
-        
-        // Return average of filtered values
-        return filteredValues.isEmpty ? 0.0 : filteredValues.reduce(0.0, +) / Double(filteredValues.count)
     }
 }
 

@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  RPMMeasurementView.swift
 //  RPM Record Player Tester
 //
 //  Created by Jamie Williamson on 11/9/2025.
@@ -7,90 +7,6 @@
 
 import SwiftUI
 import CoreMotion
-
-struct ContentView: View {
-    @State private var showingMeasurement = false
-    
-    var body: some View {
-        if showingMeasurement {
-            RPMMeasurementView(showingMeasurement: $showingMeasurement)
-        } else {
-            InstructionView(showingMeasurement: $showingMeasurement)
-        }
-    }
-}
-
-struct InstructionView: View {
-    @Binding var showingMeasurement: Bool
-    
-    @Environment(\.colorScheme) var colorScheme
-    
-    var body: some View {
-        ZStack {
-            // Background
-            (colorScheme == .dark ? Color.black : Color.clear)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 20) {
-                
-                // App Title
-                VStack(spacing: 10) {
-                    Image(systemName: "record.circle")
-                        .font(.system(size: 60))
-                        .foregroundColor(colorScheme == .dark ? .white : .primary)
-                    
-                    Text("RPM Record Player Tester")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(colorScheme == .dark ? .white : .primary)
-                }
-                .padding(.top, 80)
-                .padding(.bottom, 50)
-            
-                // Instructions
-                VStack(spacing: 20) {
-                    VStack(spacing: 20) {
-                        Text("Place your phone on the center of the turntable.")
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(colorScheme == .dark ? .white : .primary)
-                        
-                        Text("If there is a spike there, don't worry! Grab a cup from your cupboard, turn it upside down, then place the phone on the cup over the spike.")
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(colorScheme == .dark ? .white : .primary)
-                        
-                        Text("Keep the phone centered as much as possible.")
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(colorScheme == .dark ? .white : .primary)
-                        
-                        Text("When you're ready, press start!")
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(colorScheme == .dark ? .white : .primary)
-                    }
-                    .font(.body)
-                }
-                .padding(.horizontal, 30)
-            
-                Spacer()
-                
-                // Start Button
-                Button(action: {
-                    showingMeasurement = true
-                }) {
-                    Text("Start")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.blue)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 30)
-            }
-        }
-    }
-}
 
 struct RPMMeasurementView: View {
     @Binding var showingMeasurement: Bool
@@ -107,6 +23,10 @@ struct RPMMeasurementView: View {
                 // Record visualization
                 Circle()
                     .stroke(Color.white, lineWidth: 2)
+                    .background(
+                        Circle()
+                            .fill(getAccuracyColor(rpm: motionManager.rpm))
+                    )
                     .frame(width: min(geometry.size.width, geometry.size.height) * 0.7)
                 
                 // Center dot
@@ -123,6 +43,13 @@ struct RPMMeasurementView: View {
                     Text("RPM")
                         .font(.title)
                         .foregroundColor(.white.opacity(0.8))
+                    
+                    // Percentage difference from target speeds
+                    if let percentageDiff = calculatePercentageDifference(rpm: motionManager.rpm) {
+                        Text(String(format: "%+.2f%%", percentageDiff))
+                            .font(.system(size: 16, weight: .medium, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
                 }
                 .rotationEffect(.degrees(-motionManager.totalRotation + initialRotation))
                 .onReceive(motionManager.$totalRotation) { rotation in
@@ -162,6 +89,52 @@ struct RPMMeasurementView: View {
         .onDisappear {
             motionManager.stopUpdates()
         }
+    }
+    
+    // Calculate percentage difference from target RPM speeds
+    private func calculatePercentageDifference(rpm: Double) -> Double? {
+        let absRpm = abs(rpm)
+        
+        for targetSpeed in RPMTesterConfig.targetSpeeds {
+            let percentageDiff = abs(absRpm - targetSpeed) / targetSpeed * 100
+            
+            // Check if within configured percentage limit of this target speed
+            if percentageDiff < RPMTesterConfig.maxPercentageDifference {
+                // Return the actual signed percentage difference
+                return (absRpm - targetSpeed) / targetSpeed * 100
+            }
+        }
+        
+        return nil // Not within percentage limit of any target speed
+    }
+    
+    // Get color based on accuracy to target RPM
+    private func getAccuracyColor(rpm: Double) -> Color {
+        let absRpm = abs(rpm)
+        
+        // Find the closest target speed
+        var closestDistance: Double = Double.infinity
+        for targetSpeed in RPMTesterConfig.targetSpeeds {
+            let distance = abs(absRpm - targetSpeed)
+            if distance < closestDistance {
+                closestDistance = distance
+            }
+        }
+        
+        // Only show color if within good accuracy threshold
+        if closestDistance < RPMTesterConfig.goodAccuracyThreshold {
+            // Maximum green when within perfect accuracy threshold
+            if closestDistance <= RPMTesterConfig.perfectAccuracyThreshold {
+                return RPMTesterConfig.maxGreenColor
+            } else {
+                // Fade from max green at perfect threshold to transparent at good threshold
+                let fadeRange = RPMTesterConfig.goodAccuracyThreshold - RPMTesterConfig.perfectAccuracyThreshold
+                let fadePosition = (RPMTesterConfig.goodAccuracyThreshold - closestDistance) / fadeRange // 0.0 to 1.0
+                return Color.green.opacity(RPMTesterConfig.maxGreenOpacity * fadePosition)
+            }
+        }
+        
+        return Color.clear
     }
 }
 
@@ -229,5 +202,5 @@ class MotionManager: ObservableObject {
 }
 
 #Preview {
-    ContentView()
+    RPMMeasurementView(showingMeasurement: .constant(true))
 }

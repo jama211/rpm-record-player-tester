@@ -9,17 +9,17 @@ struct RPMTesterConfig {
     static let maxPercentageDifference: Double = 10.0
     
     // Accuracy color thresholds (in percentage from target)
-    static let perfectAccuracyPercentage: Double = 1.0   // Within ±1% shows max green
-    static let goodAccuracyPercentage: Double = 5.0      // Within ±5% shows fading green (green-red transition point)
+    static let perfectAccuracyPercentage: Double = 1.0     // Within ±1% shows max green
+    static let goodAccuracyPercentage: Double = 5.0        // Within ±5% (green-red transition point)
     
     // Visual styling
-    static let backgroundOpacity: Double = 0.7          // Standard background opacity for all colors
-    static let stabilizedBackgroundOpacity: Double = 0.9 // Brighter opacity when stabilized
+    static let backgroundOpacity: Double = 0.7             // Standard background opacity for all colors
+    static let stabilizedBackgroundOpacity: Double = 0.9   // Brighter opacity when stabilized
     
     // Motion detection settings
-    static let motionUpdateFrequency: Double = 120.0    // Hz - updates per second (higher = smoother counter-rotation)
-    static let rpmSmoothingHistorySize: Int = 120       // Number of readings to average (120 readings = 1 second at 120Hz)
-    static let minimumDetectableRPM: Double = 0.02      // Below this RPM, display shows 0.00 (even completely stationary, the gyroscope will return some noise)
+    static let motionUpdateFrequency: Double = 120.0       // Hz - updates per second (higher = smoother counter-rotation)
+    static let rpmSmoothingHistorySize: Int = 120          // Number of readings to average (120 readings = 1 second at 120Hz)
+    static let minimumDetectableRPM: Double = 0.02         // Below this RPM, display shows 0.00 (to hide stationary noise)
     
 }
 

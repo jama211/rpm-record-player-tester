@@ -9,6 +9,7 @@ class MotionManager: ObservableObject {
     
     @Published var rpm: Double = 0.0
     @Published var totalRotation: Double = 0.0
+    @Published var percentageHistory: [Double] = [] // For wow/flutter graph
     
     // Provide read-only access to rotation history for stabilization check
     var rotationHistory: [Double] {
@@ -52,6 +53,15 @@ class MotionManager: ObservableObject {
                 
                 self.rpm = finalRPM
                 
+                // Update percentage history for wow/flutter graph
+                if let percentageDiff = RPMCalculations.calculatePercentageDifference(rpm: finalRPM) {
+                    self.percentageHistory.append(percentageDiff)
+                    // Keep only the last 100 data points for the graph
+                    if self.percentageHistory.count > 100 {
+                        self.percentageHistory.removeFirst()
+                    }
+                }
+                
                 // Use rotation rate integration for counter-rotation (more stable under fast movement)
                 // Integrate the Z-axis rotation rate over time
                 // rotationRate (rad/s) * deltaTime (s) * (180/π) converts radians to degrees for SwiftUI
@@ -69,5 +79,6 @@ class MotionManager: ObservableObject {
         _rotationHistory.removeAll()
         rpm = 0.0
         totalRotation = 0.0
+        percentageHistory.removeAll()
     }
 }

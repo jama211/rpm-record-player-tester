@@ -13,18 +13,23 @@ struct RPMMeasurementView: View {
                 Color.black
                     .ignoresSafeArea()
                 
-                // RPM Display Component
-                RPMDisplayComponent(
-                    rpm: motionManager.rpm,
-                    totalRotation: motionManager.totalRotation,
-                    initialRotation: initialRotation,
-                    motionManager: motionManager
-                )
-                .onReceive(motionManager.$totalRotation) { rotation in
-                    if !hasSetInitialRotation {
-                        initialRotation = rotation
-                        hasSetInitialRotation = true
+                VStack(spacing: 30) {
+                    // RPM Display Component
+                    RPMDisplayComponent(
+                        rpm: motionManager.rpm,
+                        totalRotation: motionManager.totalRotation,
+                        initialRotation: initialRotation,
+                        motionManager: motionManager
+                    )
+                    .onReceive(motionManager.$totalRotation) { rotation in
+                        if !hasSetInitialRotation {
+                            initialRotation = rotation
+                            hasSetInitialRotation = true
+                        }
                     }
+                    
+                    // Wow & Flutter Graph
+                    WowFlutterGraphComponent(percentageHistory: motionManager.percentageHistory)
                 }
                 
                 // Back button

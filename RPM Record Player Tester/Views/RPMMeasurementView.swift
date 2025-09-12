@@ -1,10 +1,3 @@
-//
-//  RPMMeasurementView.swift
-//  RPM Record Player Tester
-//
-//  Created by Jamie Williamson on 11/9/2025.
-//
-
 import SwiftUI
 import CoreMotion
 
@@ -13,6 +6,20 @@ struct RPMMeasurementView: View {
     @StateObject private var motionManager = MotionManager()
     @State private var initialRotation: Double = 0
     @State private var hasSetInitialRotation = false
+    
+    // Get the processed RPM value (same as what's displayed)
+    private var displayRPM: Double {
+        return motionManager.rpm < RPMTesterConfig.minimumDetectableRPM ? 0.0 : motionManager.rpm
+    }
+    
+    // Always return text to maintain consistent layout
+    private var percentageText: String {
+        if let percentageDiff = calculatePercentageDifference(rpm: displayRPM) {
+            return String(format: "%+.2f%%", percentageDiff)
+        } else {
+            return " " // Single space to maintain layout height
+        }
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -25,7 +32,7 @@ struct RPMMeasurementView: View {
                     .stroke(Color.white, lineWidth: 2)
                     .background(
                         Circle()
-                            .fill(getAccuracyColor(rpm: motionManager.rpm))
+                            .fill(getAccuracyColor(rpm: displayRPM))
                     )
                     .frame(width: min(geometry.size.width, geometry.size.height) * 0.7)
                 
@@ -36,7 +43,7 @@ struct RPMMeasurementView: View {
                 
                 // RPM Display - rotation locked to initial orientation
                 VStack(spacing: 10) {
-                    Text(String(format: "%05.2f", min(abs(motionManager.rpm), 99.99)))
+                    Text(String(format: "%05.2f", min(abs(displayRPM), 99.99)))
                         .font(.system(size: 72, weight: .bold, design: .monospaced))
                         .foregroundColor(.white)
                     
@@ -44,13 +51,12 @@ struct RPMMeasurementView: View {
                         .font(.title)
                         .foregroundColor(.white.opacity(0.8))
                     
-                    // Percentage difference from target speeds
-                    if let percentageDiff = calculatePercentageDifference(rpm: motionManager.rpm) {
-                        Text(String(format: "%+.2f%%", percentageDiff))
-                            .font(.system(size: 16, weight: .medium, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.6))
-                    }
+                    // Percentage difference from target speeds (always reserve space)
+                    Text(percentageText)
+                        .font(.system(size: 16, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.6))
                 }
+                .offset(y: 15) // Move down to match original position
                 .rotationEffect(.degrees(-motionManager.totalRotation + initialRotation))
                 .onReceive(motionManager.$totalRotation) { rotation in
                     if !hasSetInitialRotation {
@@ -114,23 +120,56 @@ struct RPMMeasurementView: View {
         
         // Find the closest target speed
         var closestDistance: Double = Double.infinity
+        var closestTargetSpeed: Double = 0
+        
         for targetSpeed in RPMTesterConfig.targetSpeeds {
             let distance = abs(absRpm - targetSpeed)
             if distance < closestDistance {
                 closestDistance = distance
+                closestTargetSpeed = targetSpeed
             }
         }
         
-        // Only show color if within good accuracy threshold
-        if closestDistance < RPMTesterConfig.goodAccuracyThreshold {
-            // Maximum green when within perfect accuracy threshold
-            if closestDistance <= RPMTesterConfig.perfectAccuracyThreshold {
+        // Calculate percentage difference from closest target
+        if closestTargetSpeed > 0 {
+            let percentageDiff = abs(absRpm - closestTargetSpeed) / closestTargetSpeed * 100
+            
+            if percentageDiff <= RPMTesterConfig.perfectAccuracyPercentage {
+                // Maximum green when within perfect accuracy percentage
                 return RPMTesterConfig.maxGreenColor
-            } else {
-                // Fade from max green at perfect threshold to transparent at good threshold
-                let fadeRange = RPMTesterConfig.goodAccuracyThreshold - RPMTesterConfig.perfectAccuracyThreshold
-                let fadePosition = (RPMTesterConfig.goodAccuracyThreshold - closestDistance) / fadeRange // 0.0 to 1.0
+            } else if percentageDiff < RPMTesterConfig.goodAccuracyPercentage {
+                // Green gets stronger from nothing to strong as you approach perfect accuracy
+                let fadeRange = RPMTesterConfig.goodAccuracyPercentage - RPMTesterConfig.perfectAccuracyPercentage
+                let fadePosition = (RPMTesterConfig.goodAccuracyPercentage - percentageDiff) / fadeRange // 1.0 at perfect, 0.0 at good boundary
                 return Color.green.opacity(RPMTesterConfig.maxGreenOpacity * fadePosition)
+            } else {
+                // Red fades based on distance to worst possible speed (midpoints between targets)
+                let worstSpeeds = [0.0, 39.165, 61.5, 99.99] // 0, (33.33+45)/2, (45+78)/2, upper limit
+                
+                // Find distance to closest worst speed
+                var closestWorstDistance = Double.infinity
+                for worstSpeed in worstSpeeds {
+                    let distance = abs(absRpm - worstSpeed)
+                    if distance < closestWorstDistance {
+                        closestWorstDistance = distance
+                    }
+                }
+                
+                // Calculate how far we are from the green-red transition boundary
+                let greenRedBoundaryDistance = closestTargetSpeed * (RPMTesterConfig.goodAccuracyPercentage / 100.0)
+                let distanceBeyondGreenZone = max(0, closestDistance - greenRedBoundaryDistance)
+                
+                // Calculate distance to worst speed
+                let distanceToWorst = closestWorstDistance
+                let maxPossibleDistance = distanceToWorst + greenRedBoundaryDistance
+                
+                if maxPossibleDistance > 0 {
+                    // Red intensity: 0.0 at green-red boundary, 1.0 at worst speed
+                    let redIntensity = distanceBeyondGreenZone / (distanceToWorst - greenRedBoundaryDistance + distanceBeyondGreenZone)
+                    return Color.red.opacity(RPMTesterConfig.maxRedOpacity * min(1.0, redIntensity))
+                } else {
+                    return RPMTesterConfig.maxRedColor
+                }
             }
         }
         
@@ -143,61 +182,88 @@ class MotionManager: ObservableObject {
     private var timer: Timer?
     private var lastUpdateTime: TimeInterval = 0
     private var rotationHistory: [Double] = []
-    private let historySize = 10 // Keep last 10 readings for smoothing
     
     @Published var rpm: Double = 0.0
     @Published var totalRotation: Double = 0.0
     
     func startUpdates() {
-        guard motionManager.isGyroAvailable else {
-            print("Gyroscope not available")
+        guard motionManager.isDeviceMotionAvailable else {
+            print("Device motion not available")
             return
         }
         
-        motionManager.gyroUpdateInterval = 0.1 // 10 Hz
+        motionManager.deviceMotionUpdateInterval = 1.0 / RPMTesterConfig.motionUpdateFrequency
         lastUpdateTime = Date().timeIntervalSince1970
         
-        motionManager.startGyroUpdates(to: .main) { [weak self] (data, error) in
+        motionManager.startDeviceMotionUpdates(to: .main) { [weak self] (motion, error) in
             guard let self = self,
-                  let gyroData = data else { return }
+                  let deviceMotion = motion else { return }
             
             let currentTime = Date().timeIntervalSince1970
             let deltaTime = currentTime - self.lastUpdateTime
             
             if deltaTime > 0 {
-                // Z-axis rotation rate (around vertical axis)
-                let rotationRate = gyroData.rotationRate.z
+                // Z-axis rotation rate (around vertical axis) for RPM calculation
+                let rotationRate = deviceMotion.rotationRate.z
                 
-                // Convert radians per second to RPM
-                let currentRPM = abs(rotationRate) * 60 / (2 * .pi)
+                // Convert raw rotation rate to RPM (60 seconds in a minute, 2π radians in a circle)
+                let currentRPM = abs(rotationRate) * 60.0 / (2.0 * Double.pi)
                 
                 // Add to history for smoothing
                 self.rotationHistory.append(currentRPM)
-                if self.rotationHistory.count > self.historySize {
+                if self.rotationHistory.count > RPMTesterConfig.rpmSmoothingHistorySize {
                     self.rotationHistory.removeFirst()
                 }
                 
-                // Calculate smoothed RPM
-                let smoothedRPM = self.rotationHistory.reduce(0, +) / Double(self.rotationHistory.count)
+                // Calculate smoothed RPM with outlier rejection
+                let smoothedRPM = self.calculateRobustAverage(from: self.rotationHistory)
                 
-                DispatchQueue.main.async {
-                    self.rpm = smoothedRPM
-                    // Track total rotation for counter-rotation of text
-                    self.totalRotation += rotationRate * deltaTime * 180 / .pi
-                }
+                // Apply minimum detectable threshold - below this is sensor noise
+                let finalRPM = smoothedRPM < RPMTesterConfig.minimumDetectableRPM ? 0.0 : smoothedRPM
                 
+                // Testing mode override
+                self.rpm = RPMTesterConfig.testingMode ? RPMTesterConfig.testingModeRPM : finalRPM
+                
+                // Use rotation rate integration for counter-rotation (more stable under fast movement)
+                // Integrate the Z-axis rotation rate over time
+                // rotationRate (rad/s) * deltaTime (s) * (180/π) converts radians to degrees for SwiftUI
+                self.totalRotation -= rotationRate * deltaTime * (180.0 / Double.pi)
+
                 self.lastUpdateTime = currentTime
             }
         }
     }
     
     func stopUpdates() {
-        motionManager.stopGyroUpdates()
+        motionManager.stopDeviceMotionUpdates()
         timer?.invalidate()
         timer = nil
         rotationHistory.removeAll()
         rpm = 0.0
         totalRotation = 0.0
+    }
+    
+    // Calculate average while rejecting outliers to prevent spikes during acceleration
+    private func calculateRobustAverage(from values: [Double]) -> Double {
+        guard values.count >= 3 else {
+            // Not enough data for outlier detection, use simple average
+            return values.reduce(0.0, +) / Double(values.count)
+        }
+        
+        // Sort values to find median and detect outliers
+        let sortedValues = values.sorted()
+        let median = sortedValues[sortedValues.count / 2]
+        
+        // Calculate median absolute deviation (MAD) for outlier detection
+        let deviations = sortedValues.map { abs($0 - median) }
+        let mad = deviations.sorted()[deviations.count / 2]
+        
+        // Filter out outliers (values more than 2 MADs from median)
+        let threshold = max(mad * 2.0, 0.5) // Minimum threshold of 0.5 RPM
+        let filteredValues = sortedValues.filter { abs($0 - median) <= threshold }
+        
+        // Return average of filtered values
+        return filteredValues.isEmpty ? 0.0 : filteredValues.reduce(0.0, +) / Double(filteredValues.count)
     }
 }
 

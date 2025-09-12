@@ -1,10 +1,3 @@
-//
-//  InstructionView.swift
-//  RPM Record Player Tester
-//
-//  Created by Jamie Williamson on 11/9/2025.
-//
-
 import SwiftUI
 
 struct InstructionView: View {

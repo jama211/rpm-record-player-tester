@@ -63,3 +63,6 @@ fastlane/test_output
 
 # Also ignore .DS_Store for cleanliness
 .DS_Store
+
+# Xcode user state
+*.xcuserstate

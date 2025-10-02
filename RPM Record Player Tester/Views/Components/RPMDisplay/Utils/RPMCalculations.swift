@@ -135,7 +135,7 @@ struct RPMCalculations {
         }
         
         // Check if all values in buffer are within 1% of the target
-        let perfectThreshold = targetSpeed * (RPMTesterConfig.perfectAccuracyPercentage / 100.0)
+        let perfectThreshold = targetSpeed * (RPMTesterConfig.perfectAccuracyPercentage * 2.0 / 100.0) // FYI: We multiply the perfectAccuracyPercentage by 2 so that it is within perfectAccuracyPercentage _either side_ of the target 
         let allInRange = motionManager.rotationHistory.allSatisfy { value in
             abs(value - targetSpeed) <= perfectThreshold
         }

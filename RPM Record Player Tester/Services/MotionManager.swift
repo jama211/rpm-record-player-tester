@@ -75,9 +75,21 @@ class MotionManager: ObservableObject {
                 RPMTesterConfig.testingModeEndRPM
             )
             
-            // Add small random variation to simulate real-world wow/flutter (±0.5%)
-            let variation = Double.random(in: -0.005...0.005)
-            let simulatedRPM = self.testingModeCurrentRPM * (1.0 + variation)
+            // Simulate realistic wow/flutter using multiple sine waves at different frequencies
+            // Wow: slow speed variations
+            let wow = RPMTesterConfig.testingModeWowAmplitude1 * sin(2.0 * .pi * RPMTesterConfig.testingModeWowFrequency1 * elapsedTime) +
+                      RPMTesterConfig.testingModeWowAmplitude2 * sin(2.0 * .pi * RPMTesterConfig.testingModeWowFrequency2 * elapsedTime)
+            
+            // Flutter: faster variations
+            let flutter = RPMTesterConfig.testingModeFlutterAmplitude1 * sin(2.0 * .pi * RPMTesterConfig.testingModeFlutterFrequency1 * elapsedTime) +
+                          RPMTesterConfig.testingModeFlutterAmplitude2 * sin(2.0 * .pi * RPMTesterConfig.testingModeFlutterFrequency2 * elapsedTime)
+            
+            // Add small random noise for realism
+            let noise = Double.random(in: -RPMTesterConfig.testingModeNoiseAmplitude...RPMTesterConfig.testingModeNoiseAmplitude)
+            
+            // Combine all variations
+            let totalVariation = wow + flutter + noise
+            let simulatedRPM = self.testingModeCurrentRPM * (1.0 + totalVariation)
             
             self.processRPMData(currentRPM: simulatedRPM, deltaTime: deltaTime, rotationRate: 0)
             
@@ -101,7 +113,8 @@ class MotionManager: ObservableObject {
         self.rpm = finalRPM
         
         // Update percentage history for wow/flutter graph
-        if let percentageDiff = RPMCalculations.calculatePercentageDifference(rpm: finalRPM) {
+        // Use the graph-specific function that always returns a value (even outside ±10% range)
+        if let percentageDiff = RPMCalculations.calculatePercentageDifferenceForGraph(rpm: finalRPM) {
             self.percentageHistory.append(percentageDiff)
             // Keep only the last 100 data points for the graph
             if self.percentageHistory.count > 100 {

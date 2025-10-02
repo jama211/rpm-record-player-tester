@@ -26,6 +26,15 @@ struct RPMTesterConfig {
     static let testingModeStartRPM: Double = 28.0          // Starting RPM for test ramp
     static let testingModeEndRPM: Double = 78.0            // Ending RPM for test ramp
     static let testingModeRampRate: Double = 1.0           // RPM increase per second
+    static let testingModeWowFrequency1: Double = 0.7      // Hz - slow speed variation frequency
+    static let testingModeWowFrequency2: Double = 1.3      // Hz - slow speed variation frequency
+    static let testingModeWowAmplitude1: Double = 0.015    // ±1.5% variation
+    static let testingModeWowAmplitude2: Double = 0.010    // ±1.0% variation
+    static let testingModeFlutterFrequency1: Double = 6.5  // Hz - fast variation frequency
+    static let testingModeFlutterFrequency2: Double = 8.2  // Hz - fast variation frequency
+    static let testingModeFlutterAmplitude1: Double = 0.005 // ±0.5% variation
+    static let testingModeFlutterAmplitude2: Double = 0.003 // ±0.3% variation
+    static let testingModeNoiseAmplitude: Double = 0.002   // ±0.2% random noise
     
 }
 

@@ -21,6 +21,34 @@ struct RPMCalculations {
         return nil // Not within percentage limit of any target speed
     }
     
+    // Calculate percentage difference from the closest target speed (for graph)
+    // Always returns a value, even when outside the ±10% range
+    static func calculatePercentageDifferenceForGraph(rpm: Double) -> Double? {
+        let absRpm = abs(rpm)
+        
+        // Return nil if RPM is essentially zero
+        guard absRpm > RPMTesterConfig.minimumDetectableRPM else { return nil }
+        
+        // Find the closest target speed
+        var closestDistance = Double.infinity
+        var closestTargetSpeed: Double = 0
+        
+        for targetSpeed in RPMTesterConfig.targetSpeeds {
+            let distance = abs(absRpm - targetSpeed)
+            if distance < closestDistance {
+                closestDistance = distance
+                closestTargetSpeed = targetSpeed
+            }
+        }
+        
+        // Return percentage difference from closest target
+        if closestTargetSpeed > 0 {
+            return (absRpm - closestTargetSpeed) / closestTargetSpeed * 100
+        }
+        
+        return nil
+    }
+    
     // Get color based on accuracy to target RPM
     static func getAccuracyColor(rpm: Double, motionManager: MotionManager) -> Color {
         let absRpm = abs(rpm)

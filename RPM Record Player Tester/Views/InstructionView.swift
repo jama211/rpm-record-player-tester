@@ -52,6 +52,32 @@ struct InstructionView: View {
             
                 Spacer()
                 
+                // Testing Mode Toggle
+                VStack(spacing: 8) {
+                    Toggle(isOn: Binding(
+                        get: { RPMTesterConfig.testingModeEnabled },
+                        set: { RPMTesterConfig.testingModeEnabled = $0 }
+                    )) {
+                        HStack {
+                            Image(systemName: "flask")
+                                .foregroundColor(RPMTesterConfig.testingModeEnabled ? .blue : (colorScheme == .dark ? .white.opacity(0.6) : .gray))
+                            Text("Testing Mode")
+                                .foregroundColor(colorScheme == .dark ? .white : .primary)
+                        }
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                    
+                    if RPMTesterConfig.testingModeEnabled {
+                        Text("Simulates RPM ramping from 28 to 78 RPM")
+                            .font(.caption)
+                            .foregroundColor(colorScheme == .dark ? .white.opacity(0.6) : .gray)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+                
                 // Start Button
                 Button(action: {
                     showingMeasurement = true

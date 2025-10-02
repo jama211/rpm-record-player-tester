@@ -21,6 +21,12 @@ struct RPMTesterConfig {
     static let rpmSmoothingHistorySize: Int = 120          // Number of readings to average (120 readings = 1 second at 120Hz)
     static let minimumDetectableRPM: Double = 0.02         // Below this RPM, display shows 0.00 (to hide stationary noise)
     
+    // Testing mode settings
+    static var testingModeEnabled: Bool = true             // Enable fake data for testing
+    static let testingModeStartRPM: Double = 28.0          // Starting RPM for test ramp
+    static let testingModeEndRPM: Double = 78.0            // Ending RPM for test ramp
+    static let testingModeRampRate: Double = 1.0           // RPM increase per second
+    
 }
 
 struct ContentView: View {

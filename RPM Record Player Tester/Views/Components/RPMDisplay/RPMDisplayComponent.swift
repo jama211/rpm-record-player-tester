@@ -52,7 +52,7 @@ struct RPMDisplayComponent: View {
                     .foregroundColor(.white.opacity(0.6))
             }
             .offset(y: 15) // Move down to center the decimal point in the center of the circle 
-            .rotationEffect(.degrees(-totalRotation + initialRotation))
+            .rotationEffect(.degrees(RPMTesterConfig.testingModeEnabled ? 0 : -totalRotation + initialRotation))
         }
     }
 }

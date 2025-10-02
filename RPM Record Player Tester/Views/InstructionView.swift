@@ -29,7 +29,7 @@ struct InstructionView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 80)
-                .padding(.bottom, 20)
+                .padding(.bottom, 25)
             
                 // Instructions
                 VStack(spacing: 20) {
@@ -56,31 +56,40 @@ struct InstructionView: View {
             
                 Spacer()
                 
-                // Testing Mode Toggle
-                VStack(spacing: 8) {
-                    Toggle(isOn: Binding(
-                        get: { RPMTesterConfig.testingModeEnabled },
-                        set: { RPMTesterConfig.testingModeEnabled = $0 }
-                    )) {
-                        HStack {
-                            Image(systemName: "flask")
-                                .foregroundColor(RPMTesterConfig.testingModeEnabled ? .blue : (colorScheme == .dark ? .white.opacity(0.6) : .gray))
-                            Text("Testing Mode")
-                                .foregroundColor(colorScheme == .dark ? .white : .primary)
+                // Testing Mode Toggle (only shown if testingModeVisible is true)
+                if RPMTesterConfig.testingModeVisible {
+                    HStack(alignment: .center, spacing: 12) {
+                        // Left side: Icon and text
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "flask")
+                                    .foregroundColor(RPMTesterConfig.testingModeEnabled ? .blue : (colorScheme == .dark ? .white.opacity(0.6) : .gray))
+                                Text("Testing Mode")
+                                    .foregroundColor(colorScheme == .dark ? .white : .primary)
+                            }
+                            
+                            if RPMTesterConfig.testingModeEnabled {
+                                Text("Simulates RPM ramping from \(Int(RPMTesterConfig.testingModeStartRPM)) to \(Int(RPMTesterConfig.testingModeEndRPM)) RPM")
+                                    .font(.caption)
+                                    .foregroundColor(colorScheme == .dark ? .white.opacity(0.6) : .gray)
+                                    .multilineTextAlignment(.leading)
+                            }
                         }
+                        
+                        Spacer()
+                        
+                        // Right side: Toggle switch (vertically centered)
+                        Toggle("", isOn: Binding(
+                            get: { RPMTesterConfig.testingModeEnabled },
+                            set: { RPMTesterConfig.testingModeEnabled = $0 }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(SwitchToggleStyle(tint: .blue))
+                        .offset(y: -1)
                     }
-                    .toggleStyle(SwitchToggleStyle(tint: .blue))
-                    
-                    if RPMTesterConfig.testingModeEnabled {
-                        Text("Simulates RPM ramping from 28 to 78 RPM")
-                            .font(.caption)
-                            .foregroundColor(colorScheme == .dark ? .white.opacity(0.6) : .gray)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 15)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 15)
                 
                 // Start Button
                 Button(action: {

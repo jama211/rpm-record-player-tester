@@ -22,7 +22,15 @@ struct RPMTesterConfig {
     static let minimumDetectableRPM: Double = 0.02          // Below this RPM, display shows 0.00 (to hide stationary noise)
     
     // Testing mode settings
-    static var testingModeEnabled: Bool = true              // Enable fake data for testing
+    #if DEBUG
+    static var testingModeVisible: Bool = true              // Show testing mode toggle in UI (Debug only)
+    static var testingModeEnabled: Bool = true              // Enable fake data for testing (Debug only)
+    #else
+    static var testingModeVisible: Bool = false             // Hidden in Release builds
+    static var testingModeEnabled: Bool = false             // Disabled in Release builds
+    #endif
+
+    // Testing mode variables, note: these are relevant when testing mode is enabled 
     static let testingModeStartRPM: Double = 28.0           // Starting RPM for test ramp
     static let testingModeEndRPM: Double = 33.33            // Ending RPM for test ramp
     static let testingModeRampRate: Double = 1.0            // RPM increase per second

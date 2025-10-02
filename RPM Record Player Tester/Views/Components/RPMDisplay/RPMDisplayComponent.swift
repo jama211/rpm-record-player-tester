@@ -20,9 +20,20 @@ struct RPMDisplayComponent: View {
         }
     }
     
+    // Check if stabilized
+    private var isStabilized: Bool {
+        return RPMCalculations.isStabilized(rpm: displayRPM, motionManager: motionManager)
+    }
+    
     // Line width for the circle stroke
     private var circleLineWidth: CGFloat {
-        return RPMCalculations.isStabilized(rpm: displayRPM, motionManager: motionManager) ? 4 : 2
+        return isStabilized ? 4 : 2
+    }
+    
+    // Circle size (grows outward when stabilized)
+    private var circleSize: CGFloat {
+        // Base size + extra 2px when stabilized (to compensate for thicker stroke growing inward)
+        return 280 + (isStabilized ? 2 : 0)
     }
     
     var body: some View {
@@ -34,7 +45,7 @@ struct RPMDisplayComponent: View {
                     Circle()
                         .fill(RPMCalculations.getAccuracyColor(rpm: displayRPM, motionManager: motionManager))
                 )
-                .frame(width: 280, height: 280) // Fixed size for proper centering
+                .frame(width: circleSize, height: circleSize)
             
             // Center dot
             Circle()

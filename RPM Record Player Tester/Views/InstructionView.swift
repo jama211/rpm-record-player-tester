@@ -23,9 +23,13 @@ struct InstructionView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(colorScheme == .dark ? .white : .primary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .padding(.horizontal, 20)
                 .padding(.top, 80)
-                .padding(.bottom, 50)
+                .padding(.bottom, 20)
             
                 // Instructions
                 VStack(spacing: 20) {
@@ -76,7 +80,7 @@ struct InstructionView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+                .padding(.bottom, 15)
                 
                 // Start Button
                 Button(action: {

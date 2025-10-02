@@ -21,6 +21,7 @@ ICON_SIZES = [
     {"size": 20, "scale": 3, "idiom": "iphone"},  # 60x60
     
     # iPad
+    {"size": 83.5, "scale": 2, "idiom": "ipad"},  # 167x167 (iPad Pro)
     {"size": 76, "scale": 2, "idiom": "ipad"},    # 152x152
     {"size": 76, "scale": 1, "idiom": "ipad"},    # 76x76
     {"size": 40, "scale": 1, "idiom": "ipad"},    # 40x40
@@ -70,7 +71,7 @@ def generate_contents_json():
     images = []
     
     for icon_info in ICON_SIZES:
-        pixel_size = icon_info["size"] * icon_info["scale"]
+        pixel_size = int(icon_info["size"] * icon_info["scale"])
         filename = f"icon_{pixel_size}x{pixel_size}.png"
         
         images.append({
@@ -106,7 +107,7 @@ def main():
     # Generate all icon sizes
     generated_files = []
     for icon_info in ICON_SIZES:
-        pixel_size = icon_info["size"] * icon_info["scale"]
+        pixel_size = int(icon_info["size"] * icon_info["scale"])
         filename = f"icon_{pixel_size}x{pixel_size}.png"
         filepath = os.path.join(app_icon_path, filename)
         

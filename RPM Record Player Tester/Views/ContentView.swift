@@ -6,15 +6,14 @@ struct RPMTesterConfig {
     static let targetSpeeds: [Double] = [33.33, 45.0, 78.0]
     
     // Percentage difference limits
-    static let maxPercentageDifference: Double = 10.0
-    
-    // Accuracy color thresholds (in percentage from target)
     static let perfectAccuracyPercentage: Double = 1.0      // Within ±1% shows max green
-    static let goodAccuracyPercentage: Double = 5.0         // Within ±5% (green-red transition point)
+    static let maxPercentageDifference: Double = 10.0       // Must be larger than perfectAccuracyPercentage
     
     // Visual styling
     static let backgroundOpacity: Double = 0.7              // Standard background opacity for all colors
     static let stabilizedBackgroundOpacity: Double = 0.9    // Brighter opacity when stabilized
+    static let maxGreenLevelStabilized: Double = 1.0        // Greener when stabalised
+    static let maxGreenLevelUnstabalised: Double = 0.8      // Less green otherwise 
     
     // Motion detection settings
     static let motionUpdateFrequency: Double = 120.0        // Hz - updates per second (higher = smoother counter-rotation)

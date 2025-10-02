@@ -20,11 +20,16 @@ struct RPMDisplayComponent: View {
         }
     }
     
+    // Line width for the circle stroke
+    private var circleLineWidth: CGFloat {
+        return RPMCalculations.isStabilized(rpm: displayRPM, motionManager: motionManager) ? 4 : 2
+    }
+    
     var body: some View {
         ZStack {
             // Record visualization
             Circle()
-                .stroke(Color.white, lineWidth: 2)
+                .stroke(Color.white, lineWidth: circleLineWidth)
                 .background(
                     Circle()
                         .fill(RPMCalculations.getAccuracyColor(rpm: displayRPM, motionManager: motionManager))

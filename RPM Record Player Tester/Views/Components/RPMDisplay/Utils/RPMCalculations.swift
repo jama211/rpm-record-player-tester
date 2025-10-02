@@ -30,6 +30,76 @@ struct RPMCalculations {
         guard absRpm > RPMTesterConfig.minimumDetectableRPM else { return nil }
         
         // Find the closest target speed
+        guard let closestTargetSpeed = getClosestTargetSpeed(rpm: absRpm) else {
+            return nil
+        }
+        
+        // Return percentage difference from closest target
+        return (absRpm - closestTargetSpeed) / closestTargetSpeed * 100
+    }
+    
+    // Get color based on accuracy to target RPM
+    static func getAccuracyColor(rpm: Double, motionManager: MotionManager) -> Color {
+        let absRpm = abs(rpm)
+        
+        // Find the closest target speed
+        guard let closestTargetSpeed = getClosestTargetSpeed(rpm: absRpm) else {
+            return Color.clear
+        }
+        
+        // Calculate percentage difference from closest target
+        let percentageDiff = abs(absRpm - closestTargetSpeed) / closestTargetSpeed * 100
+        
+        if percentageDiff <= RPMTesterConfig.perfectAccuracyPercentage {
+            // Check if all values in buffer are within perfect accuracy (stabilized)
+            if isStabilizedAtTarget(rpm: absRpm, targetSpeed: closestTargetSpeed, motionManager: motionManager) {
+                // Stabilized green - brightest possible
+                return Color(
+                    red: 0.0,
+                    green: RPMTesterConfig.maxGreenLevelStabilized,
+                    blue: 0.0,
+                    opacity: RPMTesterConfig.stabilizedBackgroundOpacity
+                )
+            } else {
+                // Max green - standard brightness
+                return Color(
+                    red: 0.0,
+                    green: RPMTesterConfig.maxGreenLevelUnstabalised,
+                    blue: 0.0,
+                    opacity: RPMTesterConfig.backgroundOpacity
+                )
+            }
+        } else if percentageDiff < RPMTesterConfig.maxPercentageDifference {
+            // Smooth blend from green (at perfectAccuracyPercentage) to red (at maxPercentageDifference)
+            let blendRange = RPMTesterConfig.maxPercentageDifference - RPMTesterConfig.perfectAccuracyPercentage // perfectAccuracyPercentage to maxPercentageDifference range
+            let blendPosition = (percentageDiff - RPMTesterConfig.perfectAccuracyPercentage) / blendRange // 0.0 at perfectAccuracyPercentage, 1.0 at maxPercentageDifference
+            
+            // Direct blend: green fades out as red fades in
+            let greenRatio = (1.0 - blendPosition) * RPMTesterConfig.maxGreenLevelUnstabalised // maxGreenLevelUnstabalised at 1%, 0.0 at 10%
+            let redRatio = blendPosition // 0.0 at perfectAccuracyPercentage, 1.0 at maxPercentageDifference (red ratio is always max, as there's no stabalised red)
+            
+            // Create blended color with consistent opacity
+            return Color(
+                red: redRatio,
+                green: greenRatio,
+                blue: 0.0,
+                opacity: RPMTesterConfig.backgroundOpacity
+            )
+        } else {
+            // Maximum red when outside maxPercentageDifference
+            return Color(
+                red: 1.0,
+                green: 0.0,
+                blue: 0.0,
+                opacity: RPMTesterConfig.backgroundOpacity
+            )
+        }
+    }
+    
+    // Find the closest target speed for a given RPM
+    static func getClosestTargetSpeed(rpm: Double) -> Double? {
+        let absRpm = abs(rpm)
+        
         var closestDistance = Double.infinity
         var closestTargetSpeed: Double = 0
         
@@ -41,81 +111,20 @@ struct RPMCalculations {
             }
         }
         
-        // Return percentage difference from closest target
-        if closestTargetSpeed > 0 {
-            return (absRpm - closestTargetSpeed) / closestTargetSpeed * 100
-        }
-        
-        return nil
+        return closestTargetSpeed > 0 ? closestTargetSpeed : nil
     }
     
-    // Get color based on accuracy to target RPM
-    static func getAccuracyColor(rpm: Double, motionManager: MotionManager) -> Color {
+    // Check if RPM is stabilized at target (finds closest target automatically)
+    static func isStabilized(rpm: Double, motionManager: MotionManager) -> Bool {
         let absRpm = abs(rpm)
         
         // Find the closest target speed
-        var closestDistance: Double = Double.infinity
-        var closestTargetSpeed: Double = 0
-        
-        for targetSpeed in RPMTesterConfig.targetSpeeds {
-            let distance = abs(absRpm - targetSpeed)
-            if distance < closestDistance {
-                closestDistance = distance
-                closestTargetSpeed = targetSpeed
-            }
+        guard let closestTargetSpeed = getClosestTargetSpeed(rpm: absRpm) else {
+            return false
         }
         
-        // Calculate percentage difference from closest target
-        if closestTargetSpeed > 0 {
-            let percentageDiff = abs(absRpm - closestTargetSpeed) / closestTargetSpeed * 100
-            
-            if percentageDiff <= RPMTesterConfig.perfectAccuracyPercentage {
-                // Check if all values in buffer are within perfect accuracy (stabilized)
-                if isStabilizedAtTarget(rpm: absRpm, targetSpeed: closestTargetSpeed, motionManager: motionManager) {
-                    // Stabilized green - brightest possible
-                    return Color(
-                        red: 0.0,
-                        green: 1.0,
-                        blue: 0.0,
-                        opacity: RPMTesterConfig.stabilizedBackgroundOpacity
-                    )
-                } else {
-                    // Max green - standard brightness
-                    return Color(
-                        red: 0.0,
-                        green: 1.0,
-                        blue: 0.0,
-                        opacity: RPMTesterConfig.backgroundOpacity
-                    )
-                }
-            } else if percentageDiff < RPMTesterConfig.maxPercentageDifference {
-                // Smooth blend from green (at 1%) to red (at 10%) - no 5% boundary
-                let blendRange = RPMTesterConfig.maxPercentageDifference - RPMTesterConfig.perfectAccuracyPercentage // 9% range (1% to 10%)
-                let blendPosition = (percentageDiff - RPMTesterConfig.perfectAccuracyPercentage) / blendRange // 0.0 at 1%, 1.0 at 10%
-                
-                // Direct blend: green fades out as red fades in
-                let greenRatio = (1.0 - blendPosition) // 1.0 at 1%, 0.0 at 10%
-                let redRatio = blendPosition // 0.0 at 1%, 1.0 at 10%
-                
-                // Create blended color with consistent opacity
-                return Color(
-                    red: redRatio,
-                    green: greenRatio,
-                    blue: 0.0,
-                    opacity: RPMTesterConfig.backgroundOpacity
-                )
-            } else {
-                // Maximum red when outside 10%
-                return Color(
-                    red: 1.0,
-                    green: 0.0,
-                    blue: 0.0,
-                    opacity: RPMTesterConfig.backgroundOpacity
-                )
-            }
-        }
-        
-        return Color.clear
+        // Check if stabilized at this target
+        return isStabilizedAtTarget(rpm: absRpm, targetSpeed: closestTargetSpeed, motionManager: motionManager)
     }
     
     // Check if all values in the smoothing buffer are within perfect accuracy range

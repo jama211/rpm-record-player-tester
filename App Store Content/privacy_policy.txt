@@ -1,0 +1,5 @@
+Privacy Policy for RPM Record Player Tester
+
+This app does not collect, store, or transmit any personal data. The app only uses your device's built-in gyroscope to measure turntable speed locally on your device. No data is sent to external servers or shared with third parties.
+
+Last updated: October 3, 2024
